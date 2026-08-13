@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+
+<html lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" name="viewport"/>
+<title>Job Costing Dashboard</title>
+<link href="data:application/manifest+json;base64,ewogICJuYW1lIjogIkpvYiBDb3N0aW5nIERhc2hib2FyZCIsCiAgInNob3J0X25hbWUiOiAiSm9iQ29zdCIsCiAgInN0YXJ0X3VybCI6ICIuIiwKICAiZGlzcGxheSI6ICJzdGFuZGFsb25lIiwKICAiYmFja2dyb3VuZF9jb2xvciI6ICIjMGYxNzJhIiwKICAidGhlbWVfY29sb3IiOiAiIzBiMTcyYSIsCiAgImljb25zIjogWwogICAgewogICAgICAic3JjIjogImh0dHBzOi8vdmlhLnBsYWNlaG9sZGVyLmNvbS8xOTIiLAogICAgICAic2l6ZXMiOiAiMTkyeDE5MiIsCiAgICAgICJ0eXBlIjogImltYWdlL3BuZyIKICAgIH0sCiAgICB7CiAgICAgICJzcmMiOiAiaHR0cHM6Ly92aWEucGxhY2Vob2xkZXIuY29tLzUxMiIsCiAgICAgICJzaXplcyI6ICI1MTJ4NTEyIiwKICAgICAgInR5cGUiOiAiaW1hZ2UvcG5nIgogICAgfQogIF0KfQ==" rel="manifest"/>
+<meta content="#0f172a" name="theme-color"/>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;900&amp;family=Barlow:wght@300;400;500;600&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<div class="max-w-xl mx-auto p-4 sm:p-6 pb-24">
+<!-- PAGE HEADER -->
+<header class="mb-6 flex justify-between items-start">
+<div>
+<h1 class="text-2xl font-black text-slate-100 tracking-tight flex items-center gap-2">
+<span class="material-symbols-outlined text-blue-400">electric_bolt</span>
+        Job Costing
+      </h1>
+<p class="text-xs text-slate-400 mt-1 uppercase tracking-wider font-semibold flex items-center gap-2">
+  Risha Vishal Electrical
+  <span class="hidden items-center gap-1 text-emerald-400" id="pwa-status" title="Ready for offline use">
+<span class="material-symbols-outlined text-[14px]">cloud_done</span>
+</span>
+</p>
+</div>
+<div class="text-right">
+<p class="text-xs text-slate-400 mb-2 flex items-center gap-1 justify-end" id="status">
+<span class="material-symbols-outlined text-[14px]">hourglass_empty</span> Loading...
+      </p>
+<button class="btn-outline px-3 py-1.5 text-xs mb-2" onclick="loadMaterials(true)">
+<span class="material-symbols-outlined text-[14px]">sync</span> Refresh
+      </button>
+<button class="btn-outline px-3 py-1.5 text-xs ml-2" onclick="openSettingsModal()">
+<span class="material-symbols-outlined text-[14px]">settings</span>
+</button>
+</div>
+</header>
+<!-- TOP TOOLBAR -->
+<div class="flex gap-2 mb-6 overflow-x-auto pb-1 hide-scrollbar">
+<button class="btn-outline px-4 py-2 flex-shrink-0 text-sm" onclick="newJob()">
+<span class="material-symbols-outlined text-lg">add_circle</span> New
+    </button>
+<label class="btn-outline px-4 py-2 flex-shrink-0 text-sm cursor-pointer">
+<span class="material-symbols-outlined text-lg">upload_file</span> Load
+      <input accept=".json" id="loadJobInput" onchange="loadJobJSON(event)" style="display:none;" type="file"/>
+</label>
+<button class="btn-outline px-4 py-2 flex-shrink-0 text-sm" onclick="saveJobJSON()">
+<span class="material-symbols-outlined text-lg">save</span> Save
+    </button>
+<button class="btn-primary px-4 py-2 flex-shrink-0 text-sm" onclick="syncToCloud()">
+<span class="material-symbols-outlined text-lg">cloud_upload</span> Sync
+    </button>
+</div>
+<!-- JOB DETAILS -->
+<div class="panel space-y-4">
+<h2 class="title-white flex items-center gap-2"><span class="material-symbols-outlined text-slate-400">person</span> Job Details</h2>
+<div>
+<label class="field-label">Customer Name</label>
+<input class="field-input" id="customer" placeholder="e.g. John Smith" type="text"/>
+</div>
+<div>
+<label class="field-label">Address</label>
+<input class="field-input" id="address" placeholder="e.g. 123 Main Road" type="text"/>
+</div>
+<div class="grid grid-cols-2 gap-4">
+<div>
+<label class="field-label">Date</label>
+<input class="field-input" id="date" type="date"/>
+</div>
+<div>
+<label class="field-label">Quote No.</label>
+<input class="field-input" id="quoteNo" placeholder="Q-2026-001" type="text"/>
+</div>
+</div>
+</div>
+<!-- JOB SECTIONS -->
+<div class="space-y-6" id="jobSections"></div>
+<!-- NOTES & PRO TIP -->
+<div class="panel mt-6">
+<h2 class="title-white mb-3 flex items-center gap-2"><span class="material-symbols-outlined text-slate-400">edit_note</span> Notes</h2>
+<textarea class="field-input" id="notes" placeholder="Additional notes for this job..." rows="3"></textarea>
+<div class="pro-tip">
+<h3 class="text-blue-400 font-bold text-sm mb-1 flex items-center gap-1">
+<span class="material-symbols-outlined text-[16px]">lightbulb</span> Pro Tip
+      </h3>
+<p class="text-xs text-blue-200/70">
+        Future upgrades could include Camera-based SKU scanning.
+        <br/><span class="text-emerald-400 mt-1 inline-block"><span class="material-symbols-outlined text-[14px] align-middle">check_circle</span> Offline-first support (PWA) Implemented!</span>
+<br/><span class="text-emerald-400 mt-1 inline-block"><span class="material-symbols-outlined text-[14px] align-middle">cloud_sync</span> Cloud Sync Active!</span>
+</p>
+</div>
+</div>
+<!-- SETTINGS / RATES -->
+<div class="panel">
+<h2 class="title-white mb-3 flex items-center gap-2"><span class="material-symbols-outlined text-slate-400">settings</span> Rates &amp; Labour</h2>
+<div class="grid grid-cols-2 gap-4 mb-4">
+<div>
+<label class="field-label">Markup %</label>
+<div class="relative">
+<input class="field-input pr-8" id="pct-markup" max="999" min="0" oninput="validatePct(this); recalcSummary()" step="0.1" type="number" value="27.5"/>
+<span class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400">%</span>
+</div>
+</div>
+<div>
+<label class="field-label">VAT %</label>
+<div class="relative">
+<input class="field-input pr-8" id="pct-vat" max="100" min="0" oninput="validatePct(this); recalcSummary()" step="0.1" type="number" value="12.5"/>
+<span class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400">%</span>
+</div>
+</div>
+</div>
+<div class="grid grid-cols-2 gap-4">
+<div>
+<label class="field-label">Labour (TTD)</label>
+<div class="relative">
+<span class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">$</span>
+<input class="field-input pl-7" id="labourCost" min="0" oninput="recalcSummary()" step="0.01" type="number" value="0.00"/>
+</div>
+</div>
+<div>
+<label class="field-label">Inspection (TTD)</label>
+<div class="relative">
+<span class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">$</span>
+<input class="field-input pl-7" id="inspectionCost" min="0" oninput="recalcSummary()" step="0.01" type="number" value="0.00"/>
+</div>
+</div>
+</div>
+<p class="text-[10px] text-slate-500 mt-2 text-center">Labour &amp; Inspection added to final total without markup/VAT.</p>
+</div>
+<!-- SUMMARY BOX -->
+<div class="summary-box">
+<h2 class="font-condensed text-xl font-bold text-white mb-4 text-center tracking-wide">ESTIMATE SUMMARY</h2>
+<div class="sum-row text-slate-300">
+<span>Materials Subtotal</span>
+<span class="font-mono" id="bar-materials">$0.00</span>
+</div>
+<div class="sum-row text-slate-300">
+<span>Markup</span>
+<span class="font-mono" id="bar-markup">$0.00</span>
+</div>
+<div class="sum-row text-slate-300">
+<span>VAT</span>
+<span class="font-mono" id="bar-vat">$0.00</span>
+</div>
+<div class="h-px bg-slate-700 my-3"></div>
+<div class="sum-row text-slate-400 text-sm">
+<span>Labour</span>
+<span class="font-mono" id="bar-labour">$0.00</span>
+</div>
+<div class="sum-row text-slate-400 text-sm">
+<span>Inspection</span>
+<span class="font-mono" id="bar-inspection">$0.00</span>
+</div>
+<div class="sum-row total">
+<span>TOTAL</span>
+<span class="font-mono tracking-tight" id="bar-total">$0.00</span>
+</div>
+</div>
+</div><!-- end app-container max-w-xl -->
+<!-- BOTTOM ACTION BAR -->
+<div class="bottom-bar">
+<button class="btn-outline flex-col gap-1 border-slate-600" onclick="addNewSection()">
+<span class="material-symbols-outlined text-xl">add_box</span>
+<span class="text-[10px] font-bold tracking-wide">SECTION</span>
+</button>
+<button class="btn-primary flex-col gap-1" onclick="generatePDF()">
+<span class="material-symbols-outlined text-xl">picture_as_pdf</span>
+<span class="text-[10px] font-bold tracking-wide">PDF</span>
+</button>
+<button class="btn-outline flex-col gap-1 border-slate-600" onclick="exportCSV()">
+<span class="material-symbols-outlined text-xl">dataset</span>
+<span class="text-[10px] font-bold tracking-wide">CSV</span>
+</button>
+</div>
+<!-- ADD ITEM MODAL -->
+<div class="modal-overlay hidden" id="addModal" onclick="handleModalOverlayClick(event,'addModal')">
+<div class="modal-card" onclick="event.stopPropagation()">
+<h3 class="font-condensed text-xl font-bold text-white mb-4">Add Custom Item</h3>
+<div class="space-y-4">
+<div>
+<label class="field-label">Item Name *</label>
+<input class="field-input" id="modalItemName" onkeydown="if(event.key==='Enter') confirmAddModal()" placeholder="e.g. Custom conduit" type="text"/>
+</div>
+<div class="grid grid-cols-2 gap-4">
+<div>
+<label class="field-label">Quantity</label>
+<input class="field-input" id="modalQty" min="0" onkeydown="if(event.key==='Enter') confirmAddModal()" step="any" type="number"/>
+</div>
+<div>
+<label class="field-label">Price (TTD)</label>
+<input class="field-input" id="modalUnitPrice" min="0" onkeydown="if(event.key==='Enter') confirmAddModal()" step="0.01" type="number" value="0.00"/>
+</div>
+</div>
+<div class="flex items-center gap-4 text-xs text-slate-400 mt-2">
+<div>SKU: <span class="font-mono text-blue-400" id="modalSkuPreview">TMP-001</span></div>
+<div>Unit: <span class="text-slate-300">each</span></div>
+</div>
+</div>
+<div class="flex gap-3 mt-6">
+<button class="btn-outline flex-1 py-3" onclick="closeAddModal()">Cancel</button>
+<button class="btn-primary flex-1 py-3" onclick="confirmAddModal()">Add Item</button>
+</div>
+</div>
+</div>
+<!-- QTY MODAL -->
+<div class="modal-overlay hidden" id="qtyModal" onclick="handleModalOverlayClick(event,'qtyModal')">
+<div class="modal-card" onclick="event.stopPropagation()">
+<h3 class="font-condensed text-xl font-bold text-white mb-1" id="qtyModalTitle">Item Name</h3>
+<div class="flex items-center gap-2 mb-4 text-xs">
+<span class="font-mono text-blue-400" id="qtyModalSku"></span>
+<span class="text-slate-500">•</span>
+<span class="text-slate-400 uppercase tracking-wider" id="qtyModalUnit"></span>
+</div>
+<div class="mb-6">
+<label class="field-label">Quantity needed</label>
+<input class="field-input text-center text-xl font-bold py-4" id="qtyModalQty" min="0" onkeydown="if(event.key==='Enter') confirmQtyModal()" step="any" type="number" value="1"/>
+</div>
+<div class="flex gap-3">
+<button class="btn-outline flex-1 py-3" onclick="closeQtyModal()">Cancel</button>
+<button class="btn-primary flex-1 py-3" onclick="confirmQtyModal()">Add to Job</button>
+</div>
+</div>
+</div>
+<!-- SETTINGS MODAL -->
+<div class="modal-overlay hidden" id="settingsModal" onclick="handleModalOverlayClick(event,'settingsModal')">
+<div class="modal-card" onclick="event.stopPropagation()">
+<h3 class="font-condensed text-xl font-bold text-white mb-4">Sync Settings</h3>
+<div class="space-y-4">
+<div>
+<label class="field-label">Google Apps Script Web App URL</label>
+<input class="field-input" id="syncUrl" placeholder="https://script.google.com/macros/s/..." type="text"/>
+<p class="text-xs text-slate-500 mt-1">Leave blank to use CSV only.</p>
+</div>
+</div>
+<div class="flex gap-3 mt-6">
+<button class="btn-outline flex-1 py-3" onclick="closeSettingsModal()">Cancel</button>
+<button class="btn-primary flex-1 py-3" onclick="saveSettingsModal()">Save</button>
+</div>
+</div>
+</div>
+<script src="app.js" defer></script>
+
+<script src="app.js" defer></script>
+</body></html>
