@@ -1,4 +1,4 @@
-    body {
+body {
       font-family: 'Barlow', sans-serif;
       background-color: #0f172a;
       color: #f1f5f9;
@@ -14,16 +14,13 @@
     /* Inputs & Buttons */
     .field-input {
       width: 100%;
-      background-color: #0a0c10;
+      background-color: #1e293b;
       border: 1px solid #334155;
-      border-radius: 1rem;
-      color: #f1f5f9;
+      border-radius: 0.5rem;
+      color: #f8fafc;
       padding: 0.75rem 1rem;
       font-size: 1rem; /* Larger font for mobile */
       transition: all 0.2s;
-    }
-    .field-input::placeholder {
-      color: #64748b;
     }
     .field-input:focus {
       outline: none;
@@ -107,7 +104,6 @@
       border-radius: 0.75rem;
       padding: 1.25rem;
       margin-bottom: 1.5rem;
-      box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
     }
     .sum-row {
       display: flex;
@@ -138,44 +134,12 @@
       padding: 0.75rem 0.5rem;
       z-index: 50;
       padding-bottom: calc(0.75rem + env(safe-area-inset-bottom));
-      box-shadow: 0 -4px 6px -1px rgba(0, 0, 0, 0.1);
     }
     .bottom-bar button {
       flex: 1;
       margin: 0 0.25rem;
       padding: 0.75rem 0;
       font-size: 0.875rem;
-    }
-    
-    /* Desktop Responsive Overrides */
-    @media (min-width: 768px) {
-      body {
-        padding-bottom: 0;
-      }
-      .bottom-bar-container {
-        position: sticky;
-        top: 1.5rem;
-      }
-      .bottom-bar {
-        position: static;
-        background-color: transparent;
-        border-top: none;
-        display: flex;
-        flex-direction: column;
-        gap: 0.75rem;
-        padding: 0;
-        box-shadow: none;
-      }
-      .bottom-bar button {
-        margin: 0;
-        padding: 1rem;
-        flex-direction: row;
-        justify-content: center;
-        gap: 0.5rem;
-      }
-      .bottom-bar button span.text-\\[10px\\] {
-        font-size: 0.875rem;
-      }
     }
 
     /* Modals */
@@ -250,12 +214,6 @@
     .toast.toast-show {
       opacity: 1;
       transform: translateX(-50%) translateY(0);
-    }
-    
-    @media (min-width: 768px) {
-      .toast {
-        bottom: 20px;
-      }
     }
     
     /* Pro Tip */

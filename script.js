@@ -1,68 +1,16 @@
-// PWA Service Worker Registration & Dummy SW Logic
+// PWA Service Worker Registration
 if ('serviceWorker' in navigator) {
-  const swCode = `
-    const CACHE_NAME = 'job-costing-v1';
-    const CSV_URL_BASE = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQF-dVNCimVYFht-LgwEeKT4rEtW-IDphibc5oSV60YBjLxGn4KGT45nU2U58EfBCYbF0UdDxdoe88r/pub?gid=0&single=true&output=csv';
-    const URLS_TO_CACHE = [
-      '/',
-      'https://cdn.tailwindcss.com?plugins=forms,container-queries',
-      'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js',
-      'https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;900&family=Barlow:wght@300;400;500;600&display=swap',
-      'https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap'
-    ];
-
-    self.addEventListener('install', event => {
-      event.waitUntil(
-        caches.open(CACHE_NAME)
-          .then(cache => cache.addAll(URLS_TO_CACHE))
-      );
-    });
-
-    self.addEventListener('fetch', event => {
-      const url = new URL(event.request.url);
-      
-      // Cache-first / Stale-while-revalidate for the CSV
-      if (url.href.startsWith(CSV_URL_BASE) || url.pathname.endsWith('.csv')) {
-        event.respondWith(
-          caches.open(CACHE_NAME).then(cache => {
-            return cache.match(event.request).then(cachedResponse => {
-              const fetchPromise = fetch(event.request).then(networkResponse => {
-                cache.put(event.request, networkResponse.clone());
-                return networkResponse;
-              }).catch(() => cachedResponse); // Fallback to cache if network fails
-              return cachedResponse || fetchPromise;
-            });
-          })
-        );
-      } else {
-        // Standard cache-first for other assets
-        event.respondWith(
-          caches.match(event.request).then(response => {
-            return response || fetch(event.request).then(fetchRes => {
-              return caches.open(CACHE_NAME).then(cache => {
-                if (event.request.method === 'GET' && !url.href.startsWith('chrome-extension')) {
-                  cache.put(event.request, fetchRes.clone());
-                }
-                return fetchRes;
-              });
-            }).catch(() => {
-              // Ignore or return offline fallback
-            });
-          })
-        );
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('./sw.js').then(registration => {
+      console.log('SW registered:', registration);
+      const pwaStatus = document.getElementById('pwa-status');
+      if (pwaStatus) {
+        pwaStatus.classList.remove('hidden');
+        pwaStatus.classList.add('inline-flex');
       }
+    }).catch(error => {
+      console.log('SW registration failed:', error);
     });
-  `;
-  
-  const blob = new Blob([swCode], { type: 'application/javascript' });
-  const swUrl = URL.createObjectURL(blob);
-  
-  navigator.serviceWorker.register(swUrl).then(registration => {
-    console.log('SW registered:', registration);
-    document.getElementById('pwa-status').classList.remove('hidden');
-    document.getElementById('pwa-status').classList.add('inline-flex');
-  }).catch(error => {
-    console.log('SW registration failed:', error);
   });
 }
 
@@ -207,7 +155,7 @@ function addNewSection() {
   const container = document.getElementById('jobSections');
   const el = document.createElement('div');
   el.id = 'job-section-' + idx;
-  el.className = 'panel mb-0 w-full';
+  el.className = 'panel';
   el.dataset.jobIndex = idx;
   el.innerHTML = buildSectionHTML(idx);
   container.appendChild(el);
@@ -222,7 +170,7 @@ function buildSectionHTML(idx) {
         <span class="bg-blue-600 text-white w-6 h-6 rounded-full flex items-center justify-center text-xs">${idx+1}</span>
         Section ${idx+1}
       </h2>
-      ${!isFirst ? `<button onclick="removeSection(${idx})" class="text-red-400 p-1 hover:bg-slate-800 rounded-md"><span class="material-symbols-outlined">delete</span></button>` : ''}
+      ${!isFirst ? `<button onclick="removeSection(${idx})" class="text-red-400 p-1"><span class="material-symbols-outlined">delete</span></button>` : ''}
     </div>
   `;
 
@@ -231,7 +179,7 @@ function buildSectionHTML(idx) {
     
     <div class="mb-5">
       <label class="field-label">Scope of Work</label>
-      <textarea id="scope-${idx}" class="field-input bg-slate-700" style="background-color: #0a0c10; border-radius: 1rem; color: #f1f5f9;" rows="2" placeholder="Brief description..." oninput="jobs[${idx}].scope=this.value">${jobs[idx].scope}</textarea>
+      <textarea id="scope-${idx}" class="field-input" rows="2" placeholder="Brief description..." oninput="jobs[${idx}].scope=this.value">${jobs[idx].scope}</textarea>
     </div>
 
     <!-- Search Bar -->
@@ -239,7 +187,7 @@ function buildSectionHTML(idx) {
       <div class="relative">
         <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">search</span>
         <input id="searchOther-${idx}" type="text" placeholder="Search catalogue..." 
-          class="field-input pl-10 bg-slate-700" style="background-color: #0a0c10; border-radius: 1rem; color: #f1f5f9;" oninput="filterOther(${idx})"
+          class="field-input pl-10" oninput="filterOther(${idx})"
           onkeydown="handleSearchKey(event,${idx})" autocomplete="off">
       </div>
       <ul id="suggestionList-${idx}" class="suggestion-list hidden"></ul>
@@ -247,7 +195,7 @@ function buildSectionHTML(idx) {
 
     <!-- Lists -->
     <div id="mobileListContainer-${idx}" class="space-y-2 mb-4">
-       <!-- Items will be injected here as mobile/desktop cards -->
+       <!-- Items will be injected here as mobile cards -->
        <div class="text-center py-4 text-sm text-slate-500 italic" id="empty-state-${idx}">No items added yet.</div>
     </div>
 
@@ -277,7 +225,7 @@ function reRenderAllSections() {
   jobs.forEach((_, i) => {
     const el = document.createElement('div');
     el.id = 'job-section-' + i;
-    el.className = 'panel mb-0 w-full';
+    el.className = 'panel';
     el.dataset.jobIndex = i;
     el.innerHTML = buildSectionHTML(i);
     container.appendChild(el);
@@ -374,7 +322,7 @@ function confirmQtyModal() {
 }
 
 // ─────────────────────────────────────────────
-//  MOBILE/DESKTOP LIST RENDERING
+//  MOBILE LIST RENDERING
 // ─────────────────────────────────────────────
 function addItemToList(sku, itemName, unit, qty, price, jobIndex) {
   jobIndex = jobIndex ?? currentJobIndex;
@@ -459,40 +407,34 @@ function renderMobileLists(jobIndex) {
 
 function buildMobileCard(jobIndex, type, i, item, up, tp, isCustom = false) {
   const priceInput = isCustom 
-    ? `<input type="number" value="${(item.Price||0).toFixed(2)}" class="field-input py-1 px-2 text-xs w-20 text-right md:w-24 md:text-sm" onchange="updateTmpPriceMobile(${jobIndex}, ${i}, this.value)">`
-    : `<span class="text-slate-400 text-sm md:text-base">${up !== null ? '$' + up.toFixed(2) : 'N/A'}</span>`;
+    ? `<input type="number" value="${(item.Price||0).toFixed(2)}" class="field-input py-1 px-2 text-xs w-20 text-right" onchange="updateTmpPriceMobile(${jobIndex}, ${i}, this.value)">`
+    : `<span class="text-slate-400 text-sm">${up !== null ? '$' + up.toFixed(2) : 'N/A'}</span>`;
 
   return `
-    <div class="mobile-list-item md:flex md:items-center md:justify-between md:gap-4 md:py-3">
-      <div class="flex justify-between items-start mb-2 md:mb-0 md:flex-1">
-        <div class="pr-2 md:pr-4">
-          <div class="font-semibold text-sm md:text-base leading-tight text-slate-200">${item.Item}</div>
+    <div class="mobile-list-item">
+      <div class="flex justify-between items-start mb-2">
+        <div class="pr-2">
+          <div class="font-semibold text-sm leading-tight text-slate-200">${item.Item}</div>
           <div class="flex items-center gap-2 mt-1">
-            <span class="font-mono text-[10px] md:text-xs ${isCustom ? 'text-purple-400' : 'text-blue-400'}">${item.SKU}</span>
-            <span class="text-[10px] md:text-xs text-slate-500 uppercase">${item.Unit}</span>
+            <span class="font-mono text-[10px] ${isCustom ? 'text-purple-400' : 'text-blue-400'}">${item.SKU}</span>
+            <span class="text-[10px] text-slate-500 uppercase">${item.Unit}</span>
           </div>
         </div>
-        <div class="text-right md:hidden">
+        <div class="text-right">
           <div class="font-bold text-emerald-400 text-sm whitespace-nowrap">${tp !== 'N/A' ? '$' + tp : 'N/A'}</div>
           <div class="mt-1">${priceInput}</div>
         </div>
       </div>
       
-      <div class="flex items-center justify-between border-t border-slate-700 pt-2 mt-2 md:border-none md:pt-0 md:mt-0 md:justify-end md:gap-6">
-        <div class="hidden md:block text-right">
-          <div class="font-bold text-emerald-400 text-base whitespace-nowrap">${tp !== 'N/A' ? '$' + tp : 'N/A'}</div>
-          <div class="mt-1">${priceInput}</div>
+      <div class="flex items-center justify-between border-t border-slate-700 pt-2 mt-2">
+        <div class="flex items-center bg-slate-800 rounded-md overflow-hidden border border-slate-600">
+          <button onclick="updateItemQty(${jobIndex}, '${type}', ${i}, -1)" class="px-3 py-1 bg-slate-700 active:bg-slate-600 text-slate-300">-</button>
+          <input type="number" value="${item.Qty}" class="w-12 text-center bg-transparent border-none text-sm font-bold text-white p-0 focus:ring-0" onchange="setItemQty(${jobIndex}, '${type}', ${i}, this.value)">
+          <button onclick="updateItemQty(${jobIndex}, '${type}', ${i}, 1)" class="px-3 py-1 bg-slate-700 active:bg-slate-600 text-slate-300">+</button>
         </div>
-        <div class="flex items-center gap-4">
-          <div class="flex items-center bg-slate-800 rounded-md overflow-hidden border border-slate-600">
-            <button onclick="updateItemQty(${jobIndex}, '${type}', ${i}, -1)" class="px-3 py-1 bg-slate-700 active:bg-slate-600 text-slate-300 md:px-4 md:py-2">-</button>
-            <input type="number" value="${item.Qty}" class="w-12 md:w-16 text-center bg-transparent border-none text-sm md:text-base font-bold text-white p-0 focus:ring-0" onchange="setItemQty(${jobIndex}, '${type}', ${i}, this.value)">
-            <button onclick="updateItemQty(${jobIndex}, '${type}', ${i}, 1)" class="px-3 py-1 bg-slate-700 active:bg-slate-600 text-slate-300 md:px-4 md:py-2">+</button>
-          </div>
-          <button onclick="updateItemQty(${jobIndex}, '${type}', ${i}, -9999)" class="text-red-400 p-2 hover:bg-slate-800 rounded-md transition-colors">
-             <span class="material-symbols-outlined text-[18px] md:text-[20px]">delete</span>
-          </button>
-        </div>
+        <button onclick="updateItemQty(${jobIndex}, '${type}', ${i}, -9999)" class="text-red-400 p-2">
+           <span class="material-symbols-outlined text-[18px]">delete</span>
+        </button>
       </div>
     </div>
   `;
