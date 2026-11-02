@@ -589,143 +589,457 @@ function loadJobJSON(event) {
 //  EXPORTS (Logic unchanged, collapsed for brevity)
 // ─────────────────────────────────────────────
 function generatePDF() {
-  const { jsPDF } = window.jspdf;
-  const doc = new jsPDF({ unit: 'mm', format: 'a4' });
-  const PAGE_W=210, PAGE_H=297, ML=15, MR=15, MT=15, MB=20;
-  const contentW = PAGE_W - ML - MR;
-  let y = MT, pageNum = 1;
+  try {
+    showToast('Generating PDF...');
+    saveAllScopes();
 
-  const customer  = document.getElementById('customer').value  || 'Customer';
-  const address   = document.getElementById('address').value   || '';
-  const dateRaw   = document.getElementById('date').value      || new Date().toISOString().split('T')[0];
-  const quoteNo   = document.getElementById('quoteNo').value   || '';
-  const notes     = document.getElementById('notes').value     || '';
-  const markupPct  = parseFloat(document.getElementById('pct-markup').value)     || 0;
-  const vatPct     = parseFloat(document.getElementById('pct-vat').value)        || 0;
-  const labour     = Math.max(0, parseFloat(document.getElementById('labourCost').value)     || 0);
-  const inspection = Math.max(0, parseFloat(document.getElementById('inspectionCost').value) || 0);
-  const dateFmt   = dateRaw ? new Date(dateRaw + 'T00:00:00').toLocaleDateString('en-TT', { year:'numeric', month:'long', day:'numeric' }) : '';
-
-  function addPage() { drawPageNumber(); doc.addPage(); pageNum++; y=MT; drawRunningHeader(); }
-  function checkY(n) { if (y+n > PAGE_H-MB) addPage(); }
-  function drawPageNumber() {
-    doc.setFont('helvetica','normal'); doc.setFontSize(8); doc.setTextColor(150,150,150);
-    doc.text('Page ' + pageNum, PAGE_W/2, PAGE_H-8, { align:'center' });
-    doc.text(COMPANY, ML, PAGE_H-8);
-    if (quoteNo) doc.text(quoteNo, PAGE_W-MR, PAGE_H-8, { align:'right' });
-  }
-  function drawRunningHeader() {
-    doc.setFont('helvetica','bold'); doc.setFontSize(8); doc.setTextColor(100,100,100);
-    doc.text(COMPANY + (quoteNo ? '  |  ' + quoteNo : ''), ML, y);
-    y+=5; doc.setDrawColor(220,220,220); doc.setLineWidth(0.3); doc.line(ML,y,PAGE_W-MR,y); y+=5;
-  }
-  function hline(c) { doc.setDrawColor(...(c||[220,220,220])); doc.setLineWidth(0.3); doc.line(ML,y,PAGE_W-MR,y); }
-  function tableHeader() {
-    doc.setFont('helvetica','bold'); doc.setFontSize(7.5); doc.setTextColor(100,100,100);
-    doc.text('SKU',ML,y); doc.text('QTY',ML+28,y); doc.text('UNIT',ML+40,y); doc.text('DESCRIPTION',ML+60,y);
-    doc.text('UNIT $',ML+150,y,{align:'right'}); doc.text('TOTAL TTD',PAGE_W-MR,y,{align:'right'});
-    y+=3; hline([180,180,180]); y+=4; doc.setFont('helvetica','normal'); doc.setTextColor(30,30,30);
-  }
-  function tableRow(item) {
-    checkY(8); doc.setFontSize(8.5); doc.setFont('helvetica','normal');
-    doc.setTextColor(120,120,120); doc.text(String(item.SKU).substring(0,12),ML,y);
-    doc.setTextColor(30,30,30); doc.text(String(item.Qty),ML+28,y); doc.text(String(item.Unit).substring(0,8),ML+40,y);
-    const nl = doc.splitTextToSize(item.Item, 65); doc.text(nl,ML+60,y);
-    const up = item.Price!==null&&item.Price!==undefined ? item.Price : null;
-    const lt = up!==null ? (up*item.Qty).toFixed(2) : 'N/A';
-    doc.setTextColor(60,60,60); doc.text(up!==null ? '$'+up.toFixed(2) : 'N/A', ML+150, y, {align:'right'});
-    doc.setFont('helvetica','bold'); doc.setTextColor(30,30,30);
-    doc.text(lt!=='N/A' ? '$'+lt : 'N/A', PAGE_W-MR, y, {align:'right'});
-    doc.setFont('helvetica','normal');
-    y += nl.length>1 ? nl.length*5 : 7; hline([240,240,240]); y+=2;
-    return up!==null ? up*item.Qty : null;
-  }
-  function secSubtotal(total, hasNA) {
-    checkY(10); doc.setFont('helvetica','bold'); doc.setFontSize(8.5); doc.setTextColor(80,80,80);
-    doc.text('Section Subtotal:',ML+90,y); doc.setTextColor(20,20,20);
-    doc.text('$'+total.toFixed(2)+(hasNA?' + N/A':''),PAGE_W-MR,y,{align:'right'});
-    doc.setFont('helvetica','normal'); y+=8;
-  }
-
-  doc.setFillColor(20,24,40); doc.rect(0,0,PAGE_W,38,'F');
-  doc.setFont('helvetica','bold'); doc.setFontSize(15); doc.setTextColor(255,255,255); doc.text(COMPANY,ML,14);
-  doc.setFontSize(8.5); doc.setFont('helvetica','normal'); doc.setTextColor(160,175,210); doc.text('Material Cost Sheet',ML,21);
-  if (quoteNo) { doc.setFont('helvetica','bold'); doc.setFontSize(9); doc.setTextColor(180,200,255); doc.text('Quote No: '+quoteNo,PAGE_W-MR,14,{align:'right'}); }
-  doc.setFont('helvetica','normal'); doc.setFontSize(8); doc.setTextColor(180,200,255); doc.text('Date: '+dateFmt,PAGE_W-MR,21,{align:'right'});
-  y=45;
-
-  doc.setFillColor(240,242,248); doc.roundedRect(ML,y,contentW,18,2,2,'F');
-  doc.setFont('helvetica','bold'); doc.setFontSize(8); doc.setTextColor(80,80,80);
-  doc.text('CUSTOMER',ML+4,y+6); doc.text('ADDRESS',ML+90,y+6);
-  doc.setFont('helvetica','normal'); doc.setFontSize(9.5); doc.setTextColor(20,20,20);
-  doc.text(customer,ML+4,y+13); doc.text(address,ML+90,y+13);
-  y+=24;
-
-  let grandTotal=0, grandNA=false;
-  jobs.forEach((job, idx) => {
-    if (idx > 0) addPage();
-    doc.setFont('helvetica','bold'); doc.setFontSize(10); doc.setTextColor(50,80,160);
-    doc.text('Section '+(idx+1),ML,y); y+=5; hline([100,130,220]); y+=5;
-    const sc = job.scope || document.getElementById('scope-'+idx)?.value || '';
-    if (sc) {
-      doc.setFont('helvetica','italic'); doc.setFontSize(8.5); doc.setTextColor(80,80,80);
-      const sl = doc.splitTextToSize('Scope: '+sc, contentW); checkY(sl.length*5+4); doc.text(sl,ML,y); y+=sl.length*5+4;
+    const jsPdfLib = window.jspdf ? window.jspdf.jsPDF : (window.jsPDF || null);
+    if (!jsPdfLib) {
+      throw new Error('PDF library (jsPDF) is not loaded.');
     }
-    if (job.addedItems.length || job.tmpItems.length) addPage();
-    if (job.addedItems.length) {
-      checkY(14); doc.setFont('helvetica','bold'); doc.setFontSize(8.5); doc.setTextColor(60,60,60);
-      doc.text('MATERIALS FROM CATALOGUE',ML,y); y+=5; tableHeader();
-      let st=0,sna=false;
-      job.addedItems.forEach(item => { const l=tableRow(item); if(l!==null)st+=l; else sna=true; });
-      secSubtotal(st,sna); grandTotal+=st; if(sna)grandNA=true;
+
+    const doc = new jsPdfLib({ unit: 'mm', format: 'a4' });
+    const PAGE_W = 210;
+    const PAGE_H = 297;
+    const ML = 14;
+    const MR = 14;
+    const MT = 14;
+    const MB = 18;
+    const contentW = PAGE_W - ML - MR;
+    let y = MT;
+    let pageNum = 1;
+
+    // Safely collect form fields
+    const customerEl   = document.getElementById('customer');
+    const addressEl    = document.getElementById('address');
+    const dateEl       = document.getElementById('date');
+    const quoteNoEl    = document.getElementById('quoteNo');
+    const notesEl      = document.getElementById('notes');
+    const markupEl     = document.getElementById('pct-markup');
+    const vatEl        = document.getElementById('pct-vat');
+    const labourEl     = document.getElementById('labourCost');
+    const inspectEl    = document.getElementById('inspectionCost');
+
+    const customer   = (customerEl && customerEl.value.trim()) ? customerEl.value.trim() : 'Valued Client';
+    const address    = (addressEl && addressEl.value.trim()) ? addressEl.value.trim() : 'Project Site / Trinidad & Tobago';
+    const dateRaw    = (dateEl && dateEl.value) ? dateEl.value : new Date().toISOString().split('T')[0];
+    const quoteNo    = (quoteNoEl && quoteNoEl.value.trim()) ? quoteNoEl.value.trim() : 'Q-' + new Date().getFullYear() + '-001';
+    const notes      = (notesEl && notesEl.value.trim()) ? notesEl.value.trim() : '';
+    const markupPct  = markupEl ? (Math.max(0, parseFloat(markupEl.value) || 0)) : 27.5;
+    const vatPct     = vatEl ? (Math.max(0, parseFloat(vatEl.value) || 0)) : 12.5;
+    const labour     = labourEl ? (Math.max(0, parseFloat(labourEl.value) || 0)) : 0;
+    const inspection = inspectEl ? (Math.max(0, parseFloat(inspectEl.value) || 0)) : 0;
+
+    let dateFmt = dateRaw;
+    try {
+      if (dateRaw) {
+        dateFmt = new Date(dateRaw + 'T00:00:00').toLocaleDateString('en-TT', { year:'numeric', month:'short', day:'numeric' });
+      }
+    } catch(e) {
+      dateFmt = dateRaw;
     }
-    if (job.tmpItems.length) {
-      checkY(14); doc.setFont('helvetica','bold'); doc.setFontSize(8.5); doc.setTextColor(60,60,60);
-      doc.text('ADDITIONAL / UNLISTED ITEMS',ML,y); y+=5; tableHeader();
-      let tt=0,tna=false;
-      job.tmpItems.forEach(item => { const l=tableRow(item); if(l!==null)tt+=l; else tna=true; });
-      secSubtotal(tt,tna); grandTotal+=tt; if(tna)grandNA=true;
+
+    function drawRunningHeader() {
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(8);
+      doc.setTextColor(100, 116, 139);
+      doc.text(COMPANY, ML, y);
+      doc.setFont('helvetica', 'normal');
+      doc.text(quoteNo ? 'Quote Ref: ' + quoteNo : 'Quotation', PAGE_W - MR, y, { align: 'right' });
+      y += 4;
+      doc.setDrawColor(226, 232, 240);
+      doc.setLineWidth(0.3);
+      doc.line(ML, y, PAGE_W - MR, y);
+      y += 6;
     }
-    y+=4;
-  });
 
-  if (notes) {
-    checkY(16); doc.setFont('helvetica','bold'); doc.setFontSize(9); doc.setTextColor(60,60,60); doc.text('NOTES',ML,y); y+=5;
-    doc.setFont('helvetica','normal'); doc.setFontSize(8.5); doc.setTextColor(80,80,80);
-    const nl = doc.splitTextToSize(notes,contentW); checkY(nl.length*5+4); doc.text(nl,ML,y); y+=nl.length*5+8;
+    function drawPageFooter(pNum) {
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(7.5);
+      doc.setTextColor(148, 163, 184);
+      doc.text(COMPANY + '  •  ' + COMPANY_CONTACT, ML, PAGE_H - 8);
+      doc.text('Page ' + pNum, PAGE_W - MR, PAGE_H - 8, { align: 'right' });
+    }
+
+    function addPage() {
+      drawPageFooter(pageNum);
+      doc.addPage();
+      pageNum++;
+      y = MT;
+      drawRunningHeader();
+    }
+
+    function checkY(neededSpace) {
+      if (y + neededSpace > PAGE_H - MB) {
+        addPage();
+      }
+    }
+
+    // ─────────────────────────────────────────
+    // 1. BRAND HEADER BANNER (#0F111A deep slate tone)
+    // ─────────────────────────────────────────
+    doc.setFillColor(15, 17, 26);
+    doc.rect(0, 0, PAGE_W, 36, 'F');
+
+    // Accent line along the top banner
+    doc.setFillColor(77, 142, 255);
+    doc.rect(0, 0, PAGE_W, 2.5, 'F');
+
+    // Badge "RV" rounded box (#c0c1ff / #adc6ff)
+    doc.setFillColor(173, 198, 255);
+    doc.roundedRect(ML, 9, 13, 13, 2.5, 2.5, 'F');
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(10.5);
+    doc.setTextColor(0, 40, 93);
+    doc.text('RV', ML + 6.5, 17.5, { align: 'center' });
+
+    // Company Title & Subtitle
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(13);
+    doc.setTextColor(255, 255, 255);
+    doc.text(COMPANY, ML + 17, 14.5);
+
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(7.5);
+    doc.setTextColor(194, 198, 214);
+    doc.text(COMPANY_SUBTITLE, ML + 17, 19);
+    doc.text(COMPANY_CONTACT, ML + 17, 23);
+
+    // Right side quotation badge
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(16);
+    doc.setTextColor(255, 255, 255);
+    doc.text('QUOTATION', PAGE_W - MR, 15, { align: 'right' });
+
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(8.5);
+    doc.setTextColor(173, 198, 255);
+    doc.text(quoteNo, PAGE_W - MR, 20, { align: 'right' });
+
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(7.5);
+    doc.setTextColor(194, 198, 214);
+    doc.text('Date: ' + dateFmt, PAGE_W - MR, 24.5, { align: 'right' });
+
+    y = 43;
+
+    // ─────────────────────────────────────────
+    // 2. CLIENT & PROJECT DETAILS CARD (#F3F5FA)
+    // ─────────────────────────────────────────
+    doc.setFillColor(243, 245, 250);
+    doc.setDrawColor(218, 226, 253);
+    doc.setLineWidth(0.4);
+    doc.roundedRect(ML, y, contentW, 23, 3, 3, 'FD');
+
+    // Column 1: Client
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(7);
+    doc.setTextColor(100, 116, 139);
+    doc.text('CLIENT DETAILS', ML + 5, y + 6);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(9.5);
+    doc.setTextColor(15, 23, 42);
+    doc.text(customer, ML + 5, y + 12);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(7.5);
+    doc.setTextColor(71, 85, 105);
+    doc.text('Valued Client', ML + 5, y + 17);
+
+    // Column 2: Address / Site
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(7);
+    doc.setTextColor(100, 116, 139);
+    doc.text('LOCATION / PROJECT SITE', ML + 75, y + 6);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(8.5);
+    doc.setTextColor(15, 23, 42);
+    const splitAddr = doc.splitTextToSize(address, 55);
+    doc.text(splitAddr, ML + 75, y + 12);
+
+    // Column 3: Quote & Status
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(7);
+    doc.setTextColor(100, 116, 139);
+    doc.text('REFERENCE DETAILS', ML + 135, y + 6);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(8.5);
+    doc.setTextColor(15, 23, 42);
+    doc.text('Ref: ' + quoteNo, ML + 135, y + 12);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(7.5);
+    doc.setTextColor(69, 223, 164); // Secondary Emerald accent
+    doc.text('• Official Cost Estimate', ML + 135, y + 17);
+
+    y += 29;
+
+    // ─────────────────────────────────────────
+    // 3. SECTIONS & MATERIALS TABLE
+    // ─────────────────────────────────────────
+    function drawTableHeader() {
+      doc.setFillColor(30, 41, 59); // Slate-800
+      doc.rect(ML, y - 4, contentW, 7.5, 'F');
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(7);
+      doc.setTextColor(255, 255, 255);
+      doc.text('SKU', ML + 3, y + 1);
+      doc.text('QTY', ML + 28, y + 1);
+      doc.text('UNIT', ML + 44, y + 1);
+      doc.text('MATERIAL DESCRIPTION', ML + 62, y + 1);
+      doc.text('UNIT PRICE', ML + 145, y + 1, { align: 'right' });
+      doc.text('TOTAL', PAGE_W - MR - 3, y + 1, { align: 'right' });
+      y += 6;
+    }
+
+    let globalRowIndex = 0;
+    function drawRow(item, isCustom = false) {
+      checkY(8);
+      const isEven = globalRowIndex % 2 === 0;
+      if (isEven) {
+        doc.setFillColor(248, 250, 252);
+        doc.rect(ML, y - 3, contentW, 6.5, 'F');
+      }
+
+      const up = (item.Price !== null && item.Price !== undefined) ? item.Price : null;
+      const totalNum = up !== null ? (up * item.Qty) : null;
+      const totalStr = totalNum !== null ? '$' + totalNum.toFixed(2) : 'N/A';
+      const unitPriceStr = up !== null ? '$' + up.toFixed(2) : 'N/A';
+
+      doc.setFontSize(7.5);
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(isCustom ? 114 : 71, isCustom ? 54 : 85, isCustom ? 0 : 105);
+      doc.text(String(item.SKU || '—').substring(0, 14), ML + 3, y + 1);
+
+      doc.setTextColor(15, 23, 42);
+      doc.setFont('helvetica', 'bold');
+      doc.text(String(item.Qty || 1), ML + 28, y + 1);
+
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(100, 116, 139);
+      doc.text(String(item.Unit || 'each').substring(0, 8), ML + 44, y + 1);
+
+      doc.setTextColor(15, 23, 42);
+      const descLines = doc.splitTextToSize(String(item.Item || 'Item'), 68);
+      doc.text(descLines, ML + 62, y + 1);
+
+      doc.setTextColor(71, 85, 105);
+      doc.text(unitPriceStr, ML + 145, y + 1, { align: 'right' });
+
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(15, 23, 42);
+      doc.text(totalStr, PAGE_W - MR - 3, y + 1, { align: 'right' });
+
+      const rowHeight = Math.max(6.5, descLines.length * 4.2 + 2);
+      y += rowHeight;
+      globalRowIndex++;
+      return totalNum;
+    }
+
+    let grandMaterials = 0;
+    let grandHasNA = false;
+
+    jobs.forEach((job, sIdx) => {
+      checkY(16);
+      doc.setFillColor(241, 245, 249);
+      doc.roundedRect(ML, y - 3, contentW, 7, 1.5, 1.5, 'F');
+      
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(8.5);
+      doc.setTextColor(15, 23, 42);
+      doc.text('SECTION ' + (sIdx + 1), ML + 3, y + 2);
+
+      const secScope = job.scope || (document.getElementById('scope-' + sIdx) ? document.getElementById('scope-' + sIdx).value : '');
+      if (secScope) {
+        doc.setFont('helvetica', 'italic');
+        doc.setFontSize(7.5);
+        doc.setTextColor(71, 85, 105);
+        const scopeSnippet = doc.splitTextToSize('Scope: ' + secScope, contentW - 40);
+        doc.text(scopeSnippet[0], ML + 35, y + 2);
+      }
+      y += 8;
+
+      const hasCatItems = job.addedItems && job.addedItems.length > 0;
+      const hasTmpItems = job.tmpItems && job.tmpItems.length > 0;
+
+      if (!hasCatItems && !hasTmpItems) {
+        checkY(8);
+        doc.setFont('helvetica', 'italic');
+        doc.setFontSize(7.5);
+        doc.setTextColor(148, 163, 184);
+        doc.text('No materials listed in this section.', ML + 4, y);
+        y += 7;
+      } else {
+        drawTableHeader();
+        let sectionTotal = 0;
+        let secHasNA = false;
+
+        if (hasCatItems) {
+          job.addedItems.forEach(item => {
+            const line = drawRow(item, false);
+            if (line !== null) {
+              sectionTotal += line;
+              grandMaterials += line;
+            } else {
+              secHasNA = true;
+              grandHasNA = true;
+            }
+          });
+        }
+
+        if (hasTmpItems) {
+          job.tmpItems.forEach(item => {
+            const line = drawRow(item, true);
+            if (line !== null) {
+              sectionTotal += line;
+              grandMaterials += line;
+            } else {
+              secHasNA = true;
+              grandHasNA = true;
+            }
+          });
+        }
+
+        // Section Subtotal line
+        checkY(8);
+        doc.setDrawColor(226, 232, 240);
+        doc.setLineWidth(0.3);
+        doc.line(ML, y, PAGE_W - MR, y);
+        y += 4;
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(7.5);
+        doc.setTextColor(100, 116, 139);
+        doc.text('Section ' + (sIdx + 1) + ' Subtotal:', ML + 95, y);
+        doc.setFontSize(8);
+        doc.setTextColor(15, 23, 42);
+        doc.text('$' + sectionTotal.toFixed(2) + (secHasNA ? ' + N/A' : ''), PAGE_W - MR - 3, y, { align: 'right' });
+        y += 7;
+      }
+      y += 2;
+    });
+
+    // ─────────────────────────────────────────
+    // 4. NOTES / REMARKS (if any)
+    // ─────────────────────────────────────────
+    if (notes) {
+      checkY(20);
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(8);
+      doc.setTextColor(30, 41, 59);
+      doc.text('NOTES & SPECIFICATIONS', ML, y);
+      y += 4;
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(7.5);
+      doc.setTextColor(71, 85, 105);
+      const splitNotes = doc.splitTextToSize(notes, contentW);
+      doc.text(splitNotes, ML, y);
+      y += splitNotes.length * 4 + 6;
+    }
+
+    // ─────────────────────────────────────────
+    // 5. FINANCIAL SUMMARY & AUTHORIZATION CARD
+    // ─────────────────────────────────────────
+    checkY(65);
+
+    const markupAmt = grandMaterials * (markupPct / 100);
+    const vatAmt = (grandMaterials + markupAmt) * (vatPct / 100);
+    const grandFinal = grandMaterials + markupAmt + vatAmt + labour + inspection;
+    const grandNATag = grandHasNA ? ' + N/A' : '';
+
+    const summaryW = 88;
+    const summaryX = PAGE_W - MR - summaryW;
+    const summaryY = y;
+
+    // Dark sleek box for summary (#0F111A)
+    doc.setFillColor(15, 17, 26);
+    doc.roundedRect(summaryX, summaryY, summaryW, 58, 3, 3, 'F');
+
+    // Summary top accent bar
+    doc.setFillColor(69, 223, 164); // emerald accent
+    doc.rect(summaryX, summaryY, summaryW, 1.5, 'F');
+
+    let sumRowY = summaryY + 8;
+    function printSummaryRow(label, value, isBold = false, isEmerald = false) {
+      doc.setFont('helvetica', isBold ? 'bold' : 'normal');
+      doc.setFontSize(isBold ? 9.5 : 8);
+      doc.setTextColor(isBold ? 255 : 194, isBold ? 255 : 198, isBold ? 255 : 214);
+      doc.text(label, summaryX + 6, sumRowY);
+
+      if (isEmerald) {
+        doc.setTextColor(69, 223, 164); // Bright Accent
+      } else {
+        doc.setTextColor(isBold ? 255 : 218, isBold ? 255 : 226, isBold ? 255 : 253);
+      }
+      doc.text(value, summaryX + summaryW - 6, sumRowY, { align: 'right' });
+      sumRowY += isBold ? 8 : 6.5;
+    }
+
+    printSummaryRow('Materials Subtotal', '$' + grandMaterials.toFixed(2) + grandNATag);
+    printSummaryRow('Markup (' + markupPct + '%)', '$' + markupAmt.toFixed(2));
+    printSummaryRow('VAT (' + vatPct + '%)', '$' + vatAmt.toFixed(2));
+    
+    // Thin divider
+    doc.setDrawColor(45, 52, 73);
+    doc.setLineWidth(0.3);
+    doc.line(summaryX + 5, sumRowY - 2, summaryX + summaryW - 5, sumRowY - 2);
+
+    printSummaryRow('Labour Cost', '$' + labour.toFixed(2));
+    printSummaryRow('Inspection Cost', '$' + inspection.toFixed(2));
+
+    doc.setDrawColor(45, 52, 73);
+    doc.line(summaryX + 5, sumRowY - 2, summaryX + summaryW - 5, sumRowY - 2);
+    sumRowY += 2;
+
+    printSummaryRow('TOTAL ESTIMATE', '$' + grandFinal.toFixed(2) + grandNATag, true, true);
+
+    // Left side: AUTHORIZATION & SIGNATURE LINES
+    const authX = ML;
+    const authW = summaryX - ML - 8;
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(8.5);
+    doc.setTextColor(15, 23, 42);
+    doc.text('AUTHORIZATION & ACCEPTANCE', authX, summaryY + 7);
+
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(7.2);
+    doc.setTextColor(100, 116, 139);
+    doc.text('This quotation is valid for 30 days from date of issue.', authX, summaryY + 12);
+    doc.text('Payment terms: 50% deposit upon confirmation, balance upon completion.', authX, summaryY + 16);
+
+    // Signature lines
+    const sigLineY = summaryY + 38;
+    doc.setDrawColor(203, 213, 225);
+    doc.setLineWidth(0.4);
+    doc.line(authX, sigLineY, authX + 42, sigLineY);
+    doc.line(authX + 48, sigLineY, authX + 88, sigLineY);
+
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(6.5);
+    doc.setTextColor(100, 116, 139);
+    doc.text('Authorized Signature & Stamp', authX, sigLineY + 4);
+    doc.text('Client Acceptance Signature', authX + 48, sigLineY + 4);
+
+    drawPageFooter(pageNum);
+
+    // ─────────────────────────────────────────
+    // OUTPUT & DOWNLOAD
+    // ─────────────────────────────────────────
+    const safeCustomer = (customer || 'Quote').replace(/[^a-zA-Z0-9]/g, '_');
+    const pdfFilename = 'Quotation_' + safeCustomer + '_' + dateRaw + '.pdf';
+    const blob = doc.output('blob');
+    const file = new File([blob], pdfFilename, { type: 'application/pdf' });
+
+    if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
+      navigator.share({ files: [file], title: 'Quotation - ' + customer })
+        .then(() => showToast('PDF shared successfully'))
+        .catch(() => downloadBlob(blob, pdfFilename));
+    } else {
+      downloadBlob(blob, pdfFilename);
+      showToast('PDF downloaded successfully');
+    }
+
+  } catch (err) {
+    console.error('Error generating PDF:', err);
+    showToast('PDF Error: ' + err.message);
   }
-
-  checkY(55);
-  const markup = grandTotal*(markupPct/100);
-  const vat    = (grandTotal+markup)*(vatPct/100);
-  const total  = grandTotal+markup+vat+labour+inspection;
-  const naTag  = grandNA ? ' + N/A' : '';
-  doc.setFillColor(20,24,40); doc.roundedRect(ML,y,contentW,70,3,3,'F');
-  const bL=ML+6, bR=PAGE_W-MR-6; let by=y+9;
-  function sl(label,value,big) {
-    doc.setFont('helvetica',big?'bold':'normal'); doc.setFontSize(big?10.5:9);
-    doc.setTextColor(big?255:180, big?255:195, big?255:230);
-    doc.text(label,bL,by); doc.text(value,bR,by,{align:'right'}); by+=big?9:7;
-  }
-  function sd() { doc.setDrawColor(60,65,100); doc.setLineWidth(0.3); doc.line(bL,by-1,bR,by-1); }
-  sl('Materials Subtotal',                     '$'+grandTotal.toFixed(2)+naTag);
-  sl('Markup ('+markupPct+'%)',                '$'+markup.toFixed(2));
-  sd(); by+=2;
-  sl('VAT ('+vatPct+'% on materials+markup)',  '$'+vat.toFixed(2));
-  sd(); by+=2;
-  sl('Labour',                                 '$'+labour.toFixed(2));
-  sl('Inspection',                             '$'+inspection.toFixed(2));
-  sd(); by+=3;
-  sl('TOTAL QUOTED (TTD)',                     '$'+total.toFixed(2)+naTag, true);
-
-  drawPageNumber();
-  const blob = doc.output('blob');
-  const fn = 'Quotation_' + customer.replace(/[^a-zA-Z0-9]/g,'_') + '_' + dateRaw + '.pdf';
-  const file = new File([blob], fn, { type:'application/pdf' });
-  if (navigator.share && navigator.canShare && navigator.canShare({ files:[file] })) {
-    navigator.share({ files:[file], title:'Material Cost Sheet' }).catch(() => downloadBlob(blob,fn));
-  } else { downloadBlob(blob,fn); }
-}
 
 function exportCSV() {
   const customer  = document.getElementById('customer').value  || 'Customer';
