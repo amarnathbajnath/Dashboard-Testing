@@ -1,4 +1,4 @@
-const CACHE_NAME = 'job-costing-v1';
+const CACHE_NAME = 'job-costing-v2';
     const CSV_URL_BASE = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQF-dVNCimVYFht-LgwEeKT4rEtW-IDphibc5oSV60YBjLxGn4KGT45nU2U58EfBCYbF0UdDxdoe88r/pub?gid=0&single=true&output=csv';
     const URLS_TO_CACHE = [
       '/',
